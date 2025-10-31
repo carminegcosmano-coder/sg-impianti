@@ -1,14 +1,15 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import logo from "./assets/logo.png"; // 
-
+import logo from "./assets/logo.png";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const SG_BLUE = "#305496";
 const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
 const STORAGE_KEY_TARIFFE = "sgimpianti_tariffe_operai_v1";
 
-// Tariffe di default (nomi + costi)
-const DEFAULT_WORKERS =  [
+const DEFAULT_WORKERS = [
   { name: "DOMENICO GIOVINAZZO", normale: 17.11, trasferta: 20.98 },
   { name: "DAVIDE AGOSTINO", normale: 17.75, trasferta: 21.72 },
   { name: "GIUSEPPE GALLUCCIO", normale: 14.16, trasferta: 18.03 },
@@ -53,9 +54,7 @@ function Header() {
   );
 }
 
-
 export default function App() {
-  // --- Operai + salvataggio automatico ---
   const [workers, setWorkers] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_TARIFFE);
@@ -68,7 +67,6 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_TARIFFE, JSON.stringify(workers));
   }, [workers]);
 
-  // --- Sezione giornale ---
   const todayIso = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(todayIso);
   const [site, setSite] = useState("");
@@ -88,7 +86,6 @@ export default function App() {
     });
   }, [workers]);
 
-  // --- Spese ---
   const [expenses, setExpenses] = useState([]);
   const dayExpenses = useMemo(() => expenses.filter((e) => e.date === date), [expenses, date]);
 
@@ -107,8 +104,6 @@ export default function App() {
   );
 
   const giornoTot = personaleTot + speseTot;
-
-  
   const setTipo = (name, tipo) => {
     setDayRows((prev) => prev.map((r) => (r.name === name ? { ...r, tipo } : r)));
   };
@@ -132,7 +127,6 @@ export default function App() {
     setDayRows((prev) => prev.map((r) => (r.name === name ? { ...r, nota: txt } : r)));
   };
 
-  // --- Gestione spese ---
   const addExpense = (partial = {}) => {
     const id = crypto.randomUUID();
     setExpenses((prev) => [
@@ -154,18 +148,13 @@ export default function App() {
   const handleFile = (id, file) => {
     const url = URL.createObjectURL(file);
     setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, fileName: file.name, fileUrl: url } : e
-      )
+      prev.map((e) => (e.id === id ? { ...e, fileName: file.name, fileUrl: url } : e))
     );
   };
 
-  // --- Salvataggio & export ---
   const salvaSuFile = () => {
     const dati = { date, site, location, workers, dayRows, expenses, note };
-    const blob = new Blob([JSON.stringify(dati, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob([JSON.stringify(dati, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -211,6 +200,40 @@ export default function App() {
     XLSX.writeFile(wb, `Giornale_${date}.xlsx`);
   };
 
+  // ✅ FUNZIONE COMPLETA PDF (con logo, intestazione e multipagina)
+  const esportaPDF = () => {
+    const elemento = document.querySelector(".container");
+    html2canvas(elemento, { scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      // Intestazione con logo e dati principali
+      pdf.addImage(logo, "PNG", 10, 10, 40, 20);
+      pdf.setFontSize(14);
+      pdf.text("SG IMPIANTI TECNOLOGICI SNC", 60, 18);
+      pdf.setFontSize(10);
+      pdf.text(`Data: ${date}`, 60, 25);
+      pdf.text(`Cantiere: ${site || "-"}`, 60, 30);
+      pdf.text(`Località: ${location || "-"}`, 60, 35);
+
+      // Calcolo dimensioni multipagina
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const yStart = 45;
+      let y = 0;
+      while (y < imgHeight) {
+        pdf.addImage(imgData, "PNG", 0, yStart - y, imgWidth, imgHeight);
+        y += pageHeight - yStart;
+        if (y < imgHeight) pdf.addPage();
+      }
+
+      pdf.save(`Giornale_${date}.pdf`);
+    });
+  };
+
   const caricaDaFile = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -232,17 +255,24 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState("giornale");
-
-  // --- INTERFACCIA ---
-  return (
+	  return (
     <div className="container">
       <Header />
-      <div className="tabs">
+
+      {/* Tabs */}
+      <div className="tabs" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         {["giornale", "operai", "archivio", "impostazioni"].map((tab) => (
           <button
             key={tab}
             className={`tab ${activeTab === tab ? "active" : ""}`}
             onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: activeTab === tab ? `2px solid ${SG_BLUE}` : "1px solid #ddd",
+              background: activeTab === tab ? "#e9efff" : "#f8fafc",
+              cursor: "pointer",
+            }}
           >
             {tab === "giornale"
               ? "Giornale"
@@ -258,9 +288,9 @@ export default function App() {
       {/* --- GIORNALE --- */}
       {activeTab === "giornale" && (
         <>
-          <div className="card">
-            <h3>Dati giornata</h3>
-            <div className="row">
+          <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+            <h3 style={{ marginTop: 0, color: SG_BLUE }}>Dati giornata</h3>
+            <div className="row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
               <div>
                 <div>Data</div>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -284,58 +314,51 @@ export default function App() {
             </div>
           </div>
 
-          <div className="card">
-            <h3>Personale</h3>
-            <table className="table">
+          <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+            <h3 style={{ marginTop: 0, color: SG_BLUE }}>Personale</h3>
+            <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>Operaio</th>
-                  <th>Tipo Giorno</th>
-                  <th>Ore</th>
-                  <th>Costo orario</th>
-                  <th>Totale</th>
-                  <th>Note</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Operaio</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Tipo Giorno</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Ore</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Costo orario</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Totale</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Note</th>
                 </tr>
               </thead>
               <tbody>
                 {dayRows.map((r) => {
                   const w = workers.find((w) => w.name === r.name);
-                  const costo =
-                    r.tipo === "Trasferta"
-                      ? Number(w?.trasferta || 0)
-                      : Number(w?.normale || 0);
+                  const costo = r.tipo === "Trasferta" ? Number(w?.trasferta || 0) : Number(w?.normale || 0);
                   const totale = (Number(r.ore) || 0) * costo;
                   return (
                     <tr key={r.name}>
-                      <td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                         <strong>{r.name}</strong>
                       </td>
-                      <td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                         <select value={r.tipo} onChange={(e) => setTipo(r.name, e.target.value)}>
                           <option>Normale</option>
                           <option>Trasferta</option>
                         </select>
                       </td>
-                      <td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <button className="small" onClick={() => incOre(r.name, -1)}>
-                            -
-                          </button>
+                          <button className="small" onClick={() => incOre(r.name, -1)}>-</button>
                           <input
                             value={r.ore}
                             onChange={(e) => setOre(r.name, e.target.value)}
                             style={{ width: 80, textAlign: "center" }}
                           />
-                          <button className="small" onClick={() => incOre(r.name, +1)}>
-                            +
-                          </button>
+                          <button className="small" onClick={() => incOre(r.name, +1)}>+</button>
                         </div>
                       </td>
-                      <td>{euro.format(costo)}</td>
-                      <td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{euro.format(costo)}</td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                         <strong style={{ color: SG_BLUE }}>{euro.format(totale)}</strong>
                       </td>
-                      <td>
+                      <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                         <input
                           value={r.nota}
                           onChange={(e) => setNotaRiga(r.name, e.target.value)}
@@ -348,8 +371,9 @@ export default function App() {
                 })}
               </tbody>
             </table>
+
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-              <div className="kpi">
+              <div className="kpi" style={{ display: "inline-flex", gap: 8, padding: "8px 12px", background: "#f1f5f9", borderRadius: 10 }}>
                 <span>Totale Personale:</span>
                 <strong>{euro.format(personaleTot)}</strong>
               </div>
@@ -357,41 +381,33 @@ export default function App() {
           </div>
 
           {/* --- SPESE --- */}
-          <div className="card">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h3>Spese & Documenti (per il giorno selezionato)</h3>
-              <button className="primary" onClick={() => addExpense()}>
+          <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ marginTop: 0, color: SG_BLUE }}>Spese & Documenti (per il giorno selezionato)</h3>
+              <button className="primary" onClick={() => addExpense()} style={{ background: SG_BLUE, color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>
                 + Aggiungi spesa
               </button>
             </div>
 
-            <table className="table">
+            <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>Tipo</th>
-                  <th>Descrizione</th>
-                  <th>Importo</th>
-                  <th>Documento (PDF)</th>
-                  <th>Azioni</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Tipo</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Descrizione</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Importo</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Documento (PDF)</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {dayExpenses.map((e) => (
                   <tr key={e.id}>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                       <select
                         value={e.tipo}
                         onChange={(ev) =>
                           setExpenses((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id ? { ...x, tipo: ev.target.value } : x
-                            )
+                            prev.map((x) => (x.id === e.id ? { ...x, tipo: ev.target.value } : x))
                           )
                         }
                       >
@@ -402,20 +418,18 @@ export default function App() {
                           ))}
                       </select>
                     </td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                       <input
                         value={e.descrizione}
                         onChange={(ev) =>
                           setExpenses((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id ? { ...x, descrizione: ev.target.value } : x
-                            )
+                            prev.map((x) => (x.id === e.id ? { ...x, descrizione: ev.target.value } : x))
                           )
                         }
                         placeholder="Dettagli"
                       />
                     </td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                       <input
                         type="number"
                         step="0.01"
@@ -423,26 +437,19 @@ export default function App() {
                         value={e.importo}
                         onChange={(ev) =>
                           setExpenses((prev) =>
-                            prev.map((x) =>
-                              x.id === e.id
-                                ? { ...x, importo: Number(ev.target.value) }
-                                : x
-                            )
+                            prev.map((x) => (x.id === e.id ? { ...x, importo: Number(ev.target.value) } : x))
                           )
                         }
                         style={{ width: 140 }}
                       />
                     </td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                       {e.fileUrl ? (
                         <a
                           href={e.fileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          style={{
-                            color: "#1d4ed8",
-                            textDecoration: "underline",
-                          }}
+                          style={{ color: "#1d4ed8", textDecoration: "underline" }}
                         >
                           {e.fileName}
                         </a>
@@ -461,8 +468,8 @@ export default function App() {
                         </label>
                       )}
                     </td>
-                    <td>
-                      <button className="danger small" onClick={() => removeExpense(e.id)}>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
+                      <button className="danger small" onClick={() => removeExpense(e.id)} style={{ color: "#b91c1c" }}>
                         Elimina
                       </button>
                     </td>
@@ -472,101 +479,97 @@ export default function App() {
             </table>
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-              <div className="kpi">
+              <div className="kpi" style={{ display: "inline-flex", gap: 8, padding: "8px 12px", background: "#f1f5f9", borderRadius: 10 }}>
                 <span>Totale Spese:</span>
                 <strong>{euro.format(speseTot)}</strong>
               </div>
             </div>
           </div>
 
-          <div className="card">
-            <h3>Riepilogo giornata</h3>
-            <div className="row">
-              <div className="kpi">
+          <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+            <h3 style={{ marginTop: 0, color: SG_BLUE }}>Riepilogo giornata</h3>
+            <div className="row" style={{ display: "flex", gap: 12 }}>
+              <div className="kpi" style={{ padding: "8px 12px", background: "#eef2ff", borderRadius: 10 }}>
                 <span>Personale</span>
-                <strong>{euro.format(personaleTot)}</strong>
+                <strong style={{ display: "block" }}>{euro.format(personaleTot)}</strong>
               </div>
-              <div className="kpi">
+              <div className="kpi" style={{ padding: "8px 12px", background: "#e0f2fe", borderRadius: 10 }}>
                 <span>Spese</span>
-                <strong>{euro.format(speseTot)}</strong>
+                <strong style={{ display: "block" }}>{euro.format(speseTot)}</strong>
               </div>
-              <div className="kpi">
+              <div className="kpi" style={{ padding: "8px 12px", background: "#ecfdf5", borderRadius: 10 }}>
                 <span>Totale</span>
-                <strong>{euro.format(giornoTot)}</strong>
+                <strong style={{ display: "block" }}>{euro.format(giornoTot)}</strong>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* --- OPERAI --- */}
-{activeTab === "operai" && (
-  <div className="card">
-    <h3>Tariffe Operai (non modificabili)</h3>
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Operaio</th>
-          <th>Costo orario (Normale)</th>
-          <th>Costo orario (Trasferta)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {workers.map((w) => (
-          <tr key={w.name}>
-            <td><strong>{w.name}</strong></td>
-            <td>{new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(w.normale)}</td>
-            <td>{new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(w.trasferta)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    <div className="footer-note">⚙️ Le tariffe possono essere aggiornate solo nel codice sorgente.</div>
-  </div>
-)}
+      {/* --- OPERAI (sola lettura) --- */}
+      {activeTab === "operai" && (
+        <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0, color: SG_BLUE }}>Tariffe Operai (non modificabili)</h3>
+          <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Operaio</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Costo orario (Normale)</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Costo orario (Trasferta)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map((w) => (
+                <tr key={w.name}>
+                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}><strong>{w.name}</strong></td>
+                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{euro.format(w.normale)}</td>
+                  <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{euro.format(w.trasferta)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="footer-note" style={{ marginTop: 8, color: "#64748b" }}>
+            ⚙️ Le tariffe possono essere aggiornate solo nel codice sorgente.
+          </div>
+        </div>
+      )}
 
-
-      {/* --- ARCHIVIO --- */}
+      {/* --- ARCHIVIO SPESE --- */}
       {activeTab === "archivio" && (
-        <div className="card">
-          <h3>Archivio Spese & PDF</h3>
+        <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0, color: SG_BLUE }}>Archivio Spese & PDF (tutte le date)</h3>
           {expenses.length === 0 ? (
-            <div className="footer-note">Nessuna spesa registrata.</div>
+            <div className="footer-note" style={{ color: "#64748b" }}>Nessuna spesa registrata.</div>
           ) : (
-            <table className="table">
+            <table className="table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Tipo</th>
-                  <th>Descrizione</th>
-                  <th>Importo</th>
-                  <th>Documento</th>
-                  <th>Azioni</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Data</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Tipo</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Descrizione</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Importo</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Documento</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb", padding: 8 }}>Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.map((e) => (
                   <tr key={e.id}>
-                    <td>{e.date}</td>
-                    <td>{e.tipo}</td>
-                    <td>{e.descrizione}</td>
-                    <td>{euro.format(Number(e.importo || 0))}</td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{e.date}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{e.tipo}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{e.descrizione}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>{euro.format(Number(e.importo || 0))}</td>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
                       {e.fileUrl ? (
-                        <a
-                          href={e.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: "#1d4ed8", textDecoration: "underline" }}
-                        >
+                        <a href={e.fileUrl} target="_blank" rel="noreferrer" style={{ color: "#1d4ed8", textDecoration: "underline" }}>
                           {e.fileName}
                         </a>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td>
-                      <button className="danger small" onClick={() => removeExpense(e.id)}>
+                    <td style={{ borderBottom: "1px solid #f1f5f9", padding: 8 }}>
+                      <button className="danger small" onClick={() => removeExpense(e.id)} style={{ color: "#b91c1c" }}>
                         Elimina
                       </button>
                     </td>
@@ -580,37 +583,27 @@ export default function App() {
 
       {/* --- IMPOSTAZIONI --- */}
       {activeTab === "impostazioni" && (
-        <div className="card">
-          <h3>Impostazioni & Utilità</h3>
-          <div className="row">
+        <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0, color: SG_BLUE }}>Impostazioni & Utilità</h3>
+          <div className="row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
             <div>
               <div>Data predefinita</div>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div>
               <div>Nome cantiere</div>
-              <input
-                value={site}
-                onChange={(e) => setSite(e.target.value)}
-                placeholder="Nome cantiere"
-              />
+              <input value={site} onChange={(e) => setSite(e.target.value)} placeholder="Nome cantiere" />
             </div>
             <div>
               <div>Località</div>
-              <input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Comune / Indirizzo"
-              />
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Comune / Indirizzo" />
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <button
               onClick={() => {
-                setDayRows(
-                  workers.map((w) => ({ name: w.name, tipo: "Normale", ore: 0, nota: "" }))
-                );
+                setDayRows(workers.map((w) => ({ name: w.name, tipo: "Normale", ore: 0, nota: "" })));
                 setNote("");
               }}
             >
@@ -621,9 +614,7 @@ export default function App() {
               onClick={() => {
                 setWorkers(DEFAULT_WORKERS);
                 setExpenses([]);
-                setDayRows(
-                  workers.map((w) => ({ name: w.name, tipo: "Normale", ore: 0, nota: "" }))
-                );
+                setDayRows(workers.map((w) => ({ name: w.name, tipo: "Normale", ore: 0, nota: "" })));
                 setNote("");
                 setSite("");
                 setLocation("");
@@ -633,11 +624,10 @@ export default function App() {
             </button>
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
             <button onClick={salvaSuFile}>💾 Salva giornale su file</button>
-            <button className="primary" onClick={esportaExcel}>
-              📤 Esporta in Excel
-            </button>
+            <button className="primary" onClick={esportaExcel}>📤 Esporta in Excel</button>
+            <button onClick={esportaPDF}>📄 Esporta in PDF</button>
 
             <label
               style={{
@@ -658,6 +648,11 @@ export default function App() {
                 }}
               />
             </label>
+          </div>
+
+          <div className="footer-note" style={{ marginTop: 8, color: "#64748b" }}>
+            Nota: i PDF caricati nelle spese restano disponibili finché la pagina resta aperta. Possiamo
+            aggiungere salvataggio su server in un secondo momento.
           </div>
         </div>
       )}
