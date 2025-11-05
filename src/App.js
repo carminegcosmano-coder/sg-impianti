@@ -76,6 +76,10 @@ export default function App() {
   const [dayRows, setDayRows] = useState(
     workers.map((w) => ({ name: w.name, tipo: "Normale", ore: 0, nota: "" }))
   );
+	// 🚐 Gestione veicoli aziendali
+const [vanPlate, setVanPlate] = useState("");
+const [driverMorning, setDriverMorning] = useState("");
+const [driverAfternoon, setDriverAfternoon] = useState("");
 
   useEffect(() => {
     setDayRows((prev) => {
@@ -153,10 +157,12 @@ export default function App() {
   };
 
   const salvaSuFile = () => {
-    const dati = { date, site, location, workers, dayRows, expenses, note };
+    const dati = { date, site, location, vanPlate, driverMorning, driverAfternoon, workers, dayRows, expenses, note };
     const blob = new Blob([JSON.stringify(dati, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+  
+
     a.href = url;
     a.download = `giornale_${date}.json`;
     a.click();
@@ -171,6 +177,10 @@ export default function App() {
     wsData.push([]);
     wsData.push(["Elenco Operai"]);
     wsData.push(["Operaio", "Tipo", "Ore", "Costo orario", "Totale", "Note"]);
+    wsData.push(["Targa Furgone", vanPlate]);
+wsData.push(["Conducente Mattina", driverMorning]);
+wsData.push(["Conducente Pomeriggio", driverAfternoon]);
+wsData.push([]);
 
     dayRows.forEach((r) => {
       const w = workers.find((w) => w.name === r.name);
@@ -215,6 +225,10 @@ export default function App() {
       pdf.text(`Data: ${date}`, 60, 25);
       pdf.text(`Cantiere: ${site || "-"}`, 60, 30);
       pdf.text(`Località: ${location || "-"}`, 60, 35);
+      pdf.text(`Furgone: ${vanPlate || "-"}`, 60, 40);
+      pdf.text(`Mattina: ${driverMorning || "-"}`, 60, 45);
+      pdf.text(`Pomeriggio: ${driverAfternoon || "-"}`, 60, 50);
+
 
       // Calcolo dimensioni multipagina
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -222,7 +236,7 @@ export default function App() {
       const imgWidth = pageWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      const yStart = 45;
+      const yStart = 60;
       let y = 0;
       while (y < imgHeight) {
         pdf.addImage(imgData, "PNG", 0, yStart - y, imgWidth, imgHeight);
@@ -313,6 +327,34 @@ export default function App() {
               </div>
             </div>
           </div>
+<div className="row">
+  <div>
+    <div>Targa Furgone</div>
+    <input
+      value={vanPlate}
+      onChange={(e) => setVanPlate(e.target.value)}
+      placeholder="Es. FG123AB"
+    />
+  </div>
+  <div>
+    <div>Conducente (Mattina)</div>
+    <select value={driverMorning} onChange={(e) => setDriverMorning(e.target.value)}>
+      <option value="">-- Seleziona --</option>
+      {workers.map((w) => (
+        <option key={w.name}>{w.name}</option>
+      ))}
+    </select>
+  </div>
+  <div>
+    <div>Conducente (Pomeriggio)</div>
+    <select value={driverAfternoon} onChange={(e) => setDriverAfternoon(e.target.value)}>
+      <option value="">-- Seleziona --</option>
+      {workers.map((w) => (
+        <option key={w.name}>{w.name}</option>
+      ))}
+    </select>
+  </div>
+</div>
 
           <div className="card" style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
             <h3 style={{ marginTop: 0, color: SG_BLUE }}>Personale</h3>
