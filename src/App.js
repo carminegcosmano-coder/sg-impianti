@@ -10,17 +10,17 @@ const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR"
 const STORAGE_KEY_TARIFFE = "sgimpianti_tariffe_operai_v1";
 
 const DEFAULT_WORKERS = [
-  { name: "DOMENICO GIOVINAZZO", normale: 17.11, trasferta: 20.98 },
-  { name: "DAVIDE AGOSTINO", normale: 17.75, trasferta: 21.72 },
-  { name: "GIUSEPPE GALLUCCIO", normale: 14.16, trasferta: 18.03 },
-  { name: "GIUSEPPE SCAGLIONE", normale: 17.75, trasferta: 21.72 },
-  { name: "VINCENZO IANNIZZI", normale: 17.11, trasferta: 20.98 },
-  { name: "EMMANUEL SCAGLIONE", normale: 14.16, trasferta: 18.03 },
-  { name: "MICHELE PETULLA'", normale: 18.8, trasferta: 22.67 },
-  { name: "DJAMEL BOUMAZA", normale: 14.16, trasferta: 18.03 },
-  { name: "DOMENICO CUTRUPI", normale: 14.16, trasferta: 18.03 },
-  { name: "ANGELO SCAGLIONE", normale: 18.8, trasferta: 22.67 },
-  { name: "SILVIO GALLUCCIO", normale: 18.8, trasferta: 22.67 },
+  { name: "DOMENICO GIOVINAZZO", normale: 18.54, trasferta: 22.41 },
+  { name: "DAVIDE AGOSTINO", normale: 19.18, trasferta: 23.05 },
+  { name: "GIUSEPPE GALLUCCIO", normale: 15.59, trasferta: 19.46 },
+  { name: "GIUSEPPE SCAGLIONE", normale: 20.23, trasferta: 24.10 },
+  { name: "VINCENZO IANNIZZI", normale: 18.54, trasferta: 22.41 },
+  { name: "EMMANUEL SCAGLIONE", normale: 15.59, trasferta: 19.46 },
+  { name: "MICHELE PETULLA'", normale: 20.23, trasferta: 24.10 },
+  { name: "DJAMEL BOUMAZA", normale: 15.59, trasferta: 19.46 },
+  { name: "DOMENICO CUTRUPI", normale: 15.59, trasferta: 19.46 },
+  { name: "ANGELO SCAGLIONE", normale: 20.23, trasferta: 24.10 },
+  { name: "SILVIO GALLUCCIO", normale: 20.23, trasferta: 24.10 },
 ];
 
 function Header() {
