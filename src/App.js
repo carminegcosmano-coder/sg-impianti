@@ -10,11 +10,11 @@ const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR"
 const STORAGE_KEY_TARIFFE = "sgimpianti_tariffe_operai_v1";
 
 const DEFAULT_WORKERS = [
-  { name: "DOMENICO GIOVINAZZO", normale: 18.54, trasferta: 22.41 },
-  { name: "DAVIDE AGOSTINO", normale: 19.18, trasferta: 23.05 },
+  { name: "DOMENICO GIOVINAZZO", normale: 18.55, trasferta: 22.41 },
+  { name: "DAVIDE AGOSTINO", normale: 19.17, trasferta: 23.05 },
   { name: "GIUSEPPE GALLUCCIO", normale: 15.59, trasferta: 19.46 },
   { name: "GIUSEPPE SCAGLIONE", normale: 20.23, trasferta: 24.10 },
-  { name: "VINCENZO IANNIZZI", normale: 18.54, trasferta: 22.41 },
+  { name: "VINCENZO IANNIZZI", normale: 18.55, trasferta: 22.41 },
   { name: "EMMANUEL SCAGLIONE", normale: 15.59, trasferta: 19.46 },
   { name: "MICHELE PETULLA'", normale: 20.23, trasferta: 24.10 },
   { name: "DJAMEL BOUMAZA", normale: 15.59, trasferta: 19.46 },
